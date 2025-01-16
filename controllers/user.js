@@ -1,47 +1,73 @@
+const User = require("../models/User.js");
 const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+const auth = require("../auth.js");
 
-// Register User
-exports.register = async (req, res) => {
-  const { email, password } = req.body;
+const { errorHandler } = auth;
 
-  try {
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
-    }
+// [SECTION] User Registration
+module.exports.register = (req, res) => {
+  if (!req.body.email.includes("@")) {
+    return res.status(400).send({
+      error: "Email invalid",
+    });
+  } else if (req.body.mobileNo.length !== 11) {
+    return res.status(400).send({
+      error: "Mobile number invalid",
+    });
+  } else if (req.body.password.length < 8) {
+    return res.status(400).send({
+      error: "Password must be atleast 8 characters",
+    });
+  } else {
+    let newUser = new User({
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      email: req.body.email,
+      mobileNo: req.body.mobileNo,
+      password: bcrypt.hashSync(req.body.password, 10),
+    });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ email, password: hashedPassword });
-    await newUser.save();
-
-    res.status(201).json({ message: "Registered Successfully" });
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    return newUser
+      .save()
+      .then((result) =>
+        res.status(201).send({
+          message: "Registered Successfully",
+        })
+      )
+      .catch((error) => errorHandler(error, req, res));
   }
 };
 
-// Login User
-exports.login = async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
-
-    const token = jwt.sign({ userId: user._id }, "access", {
-      expiresIn: "1h",
+// [SECTION] User Login/Authentication
+module.exports.login = (req, res) => {
+  if (req.body.email.includes("@")) {
+    return User.findOne({ email: req.body.email })
+      .then((result) => {
+        if (result == null) {
+          return res.status(404).send({
+            error: "No email found",
+          });
+        } else {
+          const isPasswordCorrect = bcrypt.compareSync(
+            req.body.password,
+            result.password
+          );
+          if (isPasswordCorrect) {
+            return res.status(200).send({
+              // message: 'User logged in successfully',
+              access: auth.createAccessToken(result),
+            });
+          } else {
+            return res.status(401).send({
+              error: "Email and password do not match",
+            });
+          }
+        }
+      })
+      .catch((error) => errorHandler(error, req, res));
+  } else {
+    return res.status(400).send({
+      error: "Invalid Email",
     });
-    res.status(200).json({ token });
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
   }
 };

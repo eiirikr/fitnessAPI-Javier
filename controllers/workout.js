@@ -1,101 +1,137 @@
-const Workout = require("../models/Workout");
-const User = require("../models/User");
+const Workout = require("../models/Workout.js");
+const User = require("../models/User.js");
 
-// Add a workout
-exports.addWorkout = async (req, res) => {
-  const { name, duration } = req.body;
+const { errorHandler } = require("../auth.js");
 
+// [SECTION] Create Workouts
+module.exports.addWorkout = async (req, res) => {
   try {
-    const workout = new Workout({ name, duration });
-    await workout.save();
+    const name = req.body.name;
+    const workoutExists = await Workout.findOne({ name });
 
-    const user = await User.findById(req.userId);
-    user.workouts.push(workout._id);
-    await user.save();
+    if (workoutExists) {
+      return res.status(409).send({
+        message: "Workout already exists",
+      });
+    }
 
-    res.status(201).json(workout);
+    let newWorkout = new Workout({
+      name: req.body.name,
+      duration: req.body.duration,
+      status: req.body.status,
+    });
+
+    await newWorkout.save();
+
+    return res.status(201).send(newWorkout);
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    errorHandler(error, req, res);
   }
 };
 
-// Get all workouts for a user
-exports.getMyWorkouts = async (req, res) => {
+// [SECTION] Retrieve all workouts
+module.exports.getMyWorkouts = async (req, res) => {
   try {
-    const user = await User.findById(req.userId).populate("workouts");
-    res.status(200).json(user.workouts);
+    const allWorkouts = await Workout.find({});
+
+    if (allWorkouts.length > 0) {
+      return res.status(200).send({ workouts: allWorkouts });
+    } else {
+      return res.status(404).send({
+        message: "No workouts",
+      });
+    }
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    errorHandler(error, req, res);
   }
 };
 
-// Update a workout
-exports.updateWorkout = async (req, res) => {
-  const workoutId = req.params.id; // Get the workout ID from the URL
-  const { name, duration, status } = req.body;
-
+// [SECTION] Update Workout
+module.exports.updateWorkout = async (req, res) => {
   try {
-    // Find the workout by ID
-    const workout = await Workout.findById(workoutId);
-    if (!workout) {
-      return res.status(404).json({ message: "Workout not found" });
+    const { workoutId } = req.params;
+    const { name, duration, status } = req.body;
+
+    // Validate inputs
+    if (name && (typeof name !== "string" || name.trim() === "")) {
+      return res.status(400).json({
+        error: "Workout name must be a valid, non-empty string.",
+      });
+    }
+    if (duration && (typeof duration !== "number" || duration <= 0)) {
+      return res.status(400).json({
+        error: "Duration must be a positive number.",
+      });
+    }
+    if (status) {
+      const validStatuses = ["pending", "in-progress", "completed"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({
+          error: `Invalid status. Allowed values are: ${validStatuses.join(
+            ", "
+          )}.`,
+        });
+      }
     }
 
-    // Ensure the workout belongs to the authenticated user
-    const user = await User.findById(req.userId);
-    if (!user.workouts.includes(workoutId)) {
-      return res
-        .status(403)
-        .json({ message: "You can only update your own workouts" });
+    // Find workout by ID and ensure it belongs to the authenticated user
+    const workoutToUpdate = await Workout.findOne({
+      _id: workoutId,
+      userId: req.userId,
+    });
+
+    if (!workoutToUpdate) {
+      return res.status(404).json({
+        error: "Workout not found or unauthorized access.",
+      });
     }
 
-    // Update the workout details
-    workout.name = name || workout.name;
-    workout.duration = duration || workout.duration;
-    workout.status = status || workout.status;
+    // Update workout fields
+    if (name) workoutToUpdate.name = name;
+    if (duration) workoutToUpdate.duration = duration;
+    if (status) workoutToUpdate.status = status;
 
-    await workout.save();
+    // Save updated workout
+    const updatedWorkout = await workoutToUpdate.save();
 
-    res.status(200).json({
-      message: "Workout updated successfully",
-      updatedWorkout: workout,
+    return res.status(200).json({
+      message: "Workout updated successfully.",
+      updatedWorkout: updatedWorkout,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    errorHandler(error, req, res);
   }
 };
 
-// Delete a workout
-exports.deleteWorkout = async (req, res) => {
-  const workoutId = req.params.id; // Get the workout ID from the URL parameter
+// [SECTION] Delete Workout
+module.exports.deleteWorkout = async (req, res) => {
+  const { workoutId } = req.params; // Get the workout ID from the URL parameter
 
   try {
-    // Find the workout by its ID
-    const workout = await Workout.findById(workoutId);
-    if (!workout) {
-      return res.status(404).json({ message: "Workout not found" });
-    }
+    // Find the workout and ensure it belongs to the authenticated user
+    const workout = await Workout.findOne({
+      _id: workoutId,
+      userId: req.userId,
+    });
 
-    // Ensure the workout belongs to the authenticated user
-    const user = await User.findById(req.userId);
-    if (!user.workouts.includes(workoutId)) {
+    if (!workout) {
       return res
-        .status(403)
-        .json({ message: "You can only delete your own workouts" });
+        .status(404)
+        .json({ error: "Workout not found or unauthorized access." });
     }
 
     // Delete the workout
-    await workout.remove();
-    res.status(200).json({ message: "Workout deleted successfully" });
+    await Workout.deleteOne({ _id: workoutId });
+
+    res.status(200).json({ message: "Workout deleted successfully." });
   } catch (error) {
-    console.error(error); // Log the error for debugging
-    res.status(500).json({ message: "Server error" });
+    errorHandler(error, req, res);
   }
 };
 
-// Mark a workout as complete
-exports.completeWorkoutStatus = async (req, res) => {
-  const workoutId = req.params.id; // Get the workout ID from the URL parameter
+// [SECTION] Mark a workout as complete
+module.exports.completeWorkoutStatus = async (req, res) => {
+  const workoutId = req.params.workoutId; // Get the workout ID from the URL parameter
 
   try {
     // Find the workout by its ID
@@ -113,7 +149,6 @@ exports.completeWorkoutStatus = async (req, res) => {
       updatedWorkout: workout,
     }); // Return the updated workout
   } catch (error) {
-    console.error(error); // Log the error for debugging
-    res.status(500).json({ message: "Server error" });
+    errorHandler(error, req, res);
   }
 };
