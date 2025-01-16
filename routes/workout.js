@@ -1,19 +1,31 @@
 const express = require("express");
 const router = express.Router();
-const workoutController = require("../controllers/workout");
-const { authenticate } = require("../middleware/auth");
+const workoutController = require("../controllers/workout.js");
+const { verify, isLoggedIn } = require("../auth");
 
-router.post("/addWorkout", authenticate, workoutController.addWorkout);
-router.get("/getMyWorkouts", authenticate, workoutController.getMyWorkouts);
-router.put("/updateWorkout/:id", authenticate, workoutController.updateWorkout);
-router.delete(
-  "/deleteWorkout/:id",
-  authenticate,
-  workoutController.deleteWorkout
+router.post("/addWorkout", verify, isLoggedIn, workoutController.addWorkout);
+router.get(
+  "/getMyWorkouts",
+  verify,
+  isLoggedIn,
+  workoutController.getMyWorkouts
 );
 router.put(
-  "/completeWorkoutStatus/:id",
-  authenticate,
+  "/updateWorkout/:workoutId",
+  verify,
+  isLoggedIn,
+  workoutController.updateWorkout
+);
+router.delete(
+  "/deleteWorkout/:workoutId",
+  verify,
+  isLoggedIn,
+  workoutController.deleteWorkout
+);
+router.patch(
+  "/completeWorkoutStatus/:workoutId",
+  verify,
+  isLoggedIn,
   workoutController.completeWorkoutStatus
 );
 
