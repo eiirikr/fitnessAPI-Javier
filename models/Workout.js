@@ -3,11 +3,11 @@ const mongoose = require("mongoose");
 const workoutSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true,
+    required: [true, "Name is Required"],
   },
   duration: {
     type: Number,
-    required: true,
+    required: [true, "Duration is Required"],
   },
   dateAdded: {
     type: Date,
@@ -15,8 +15,8 @@ const workoutSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["completed", "in-progress", "not-started"],
-    default: "not-started",
+    enum: ["completed", "in-progress", "pending"],
+    default: "pending",
   },
 });
 
