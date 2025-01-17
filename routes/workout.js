@@ -10,20 +10,20 @@ router.get(
   isLoggedIn,
   workoutController.getMyWorkouts
 );
-router.put(
-  "/updateWorkout/:workoutId",
+router.patch(
+  "/updateWorkout/:id",
   verify,
   isLoggedIn,
   workoutController.updateWorkout
 );
 router.delete(
-  "/deleteWorkout/:workoutId",
+  "/deleteWorkout/:id",
   verify,
   isLoggedIn,
   workoutController.deleteWorkout
 );
 router.patch(
-  "/completeWorkoutStatus/:workoutId",
+  "/completeWorkoutStatus/:id",
   verify,
   isLoggedIn,
   workoutController.completeWorkoutStatus
