@@ -5,7 +5,7 @@ const auth = require("../auth.js");
 const { errorHandler } = auth;
 
 // [SECTION] User Registration
-module.exports.register = (req, res) => {
+module.exports.registerUser = (req, res) => {
   if (!req.body.email.includes("@")) {
     return res.status(400).send({
       error: "Email invalid",
@@ -39,7 +39,7 @@ module.exports.register = (req, res) => {
 };
 
 // [SECTION] User Login/Authentication
-module.exports.login = (req, res) => {
+module.exports.loginUser = (req, res) => {
   if (req.body.email.includes("@")) {
     return User.findOne({ email: req.body.email })
       .then((result) => {

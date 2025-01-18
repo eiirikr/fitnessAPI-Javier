@@ -1,6 +1,5 @@
 const Workout = require("../models/Workout.js");
 const { errorHandler } = require("../auth.js");
-const mongoose = require("mongoose");
 
 const jwt = require("jsonwebtoken"); // Ensure you import the jwt package
 
@@ -78,103 +77,46 @@ module.exports.getMyWorkouts = async (req, res) => {
 };
 
 // [SECTION] Update Workout
-module.exports.updateWorkout = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, duration, status } = req.body;
+module.exports.updateWorkout = (req, res) => {
+  let workoutUpdates = {
+    name: req.body.name,
+    duration: req.body.duration,
+    status: req.body.status,
+  };
 
-    // Extract the token from the Authorization header
-    const token = req.headers.authorization?.split(" ")[1]; // Extract Bearer token
-
-    if (!token) {
-      return res
-        .status(401)
-        .json({ message: "Authorization token is missing" });
-    }
-
-    // Decode the token to get the userId
-    const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY);
-    const userId = decoded.id; // Get the userId from the decoded token
-
-    console.log("userId from token:", userId);
-    console.log("Workout ID from request:", id);
-
-    // Validate if the workout ID is a valid ObjectId
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid workout ID." });
-    }
-
-    // Validate inputs
-    if (name && (typeof name !== "string" || name.trim() === "")) {
-      return res.status(400).json({
-        error: "Workout name must be a valid, non-empty string.",
-      });
-    }
-    if (duration && (typeof duration !== "number" || duration <= 0)) {
-      return res.status(400).json({
-        error: "Duration must be a positive number.",
-      });
-    }
-    if (status) {
-      const validStatuses = ["pending", "in-progress", "completed"];
-      if (!validStatuses.includes(status)) {
-        return res.status(400).json({
-          error: `Invalid status. Allowed values are: ${validStatuses.join(
-            ", "
-          )}.`,
-        });
+  return Workout.findByIdAndUpdate(req.params.id, workoutUpdates)
+    .then((updatedWorkout) => {
+      if (!updatedWorkout) {
+        return res.status(404).send({ error: "Workout not found" });
       }
-    }
 
-    // Find and update the workout for the specific userId
-    const updatedWorkout = await Workout.findOneAndUpdate(
-      { _id: id, userId: userId }, // Use the userId from the token
-      { name, duration, status },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedWorkout) {
-      return res.status(404).json({
-        error: "Workout not found or unauthorized access.",
+      return res.status(200).send({
+        message: "Workout updated successfully",
+        updatedWorkout: updatedWorkout,
       });
-    }
-
-    return res.status(200).json({
-      message: "Workout updated successfully.",
-      updatedWorkout: updatedWorkout,
+    })
+    .catch((err) => {
+      console.error("Error in updating a Workout : ", err);
+      return res.status(500).send({ error: "Error in updating a Workout." });
     });
-  } catch (error) {
-    console.error("Error updating workout:", error);
-    errorHandler(error, req, res);
-  }
 };
 
 // [SECTION] Delete Workout
-module.exports.deleteWorkout = async (req, res) => {
-  const { id } = req.params; // Get the workout ID from the URL parameter
+module.exports.deleteWorkout = (req, res) => {
+  return Workout.deleteOne({ _id: req.params.id })
+    .then((deletedResult) => {
+      if (deletedResult < 1) {
+        return res.status(400).send({ error: "No Workout deleted" });
+      }
 
-  try {
-    // Find the workout and ensure it belongs to the authenticated user
-    const workout = await Workout.findOne({
-      _id: id,
-      userId: req.userId,
+      return res.status(200).send({
+        message: "Workout deleted successfully",
+      });
+    })
+    .catch((err) => {
+      console.error("Error in deleting a Workout : ", err);
+      return res.status(500).send({ error: "Error in deleting a Workout." });
     });
-
-    if (!workout) {
-      return res
-        .status(404)
-        .json({ message: "Workout not found or unauthorized access." });
-    }
-
-    // Delete the workout
-    await Workout.deleteOne({ _id: id });
-
-    return res.status(200).json({
-      message: "Workout deleted successfully",
-    });
-  } catch (error) {
-    errorHandler(error, req, res);
-  }
 };
 
 // [SECTION] Mark a workout as complete
