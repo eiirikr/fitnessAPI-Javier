@@ -10,20 +10,13 @@ module.exports.registerUser = (req, res) => {
     return res.status(400).send({
       error: "Email invalid",
     });
-  } else if (req.body.mobileNo.length !== 11) {
-    return res.status(400).send({
-      error: "Mobile number invalid",
-    });
   } else if (req.body.password.length < 8) {
     return res.status(400).send({
       error: "Password must be atleast 8 characters",
     });
   } else {
     let newUser = new User({
-      firstName: req.body.firstName,
-      lastName: req.body.lastName,
       email: req.body.email,
-      mobileNo: req.body.mobileNo,
       password: bcrypt.hashSync(req.body.password, 10),
     });
 
