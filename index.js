@@ -19,6 +19,8 @@ app.use(express.urlencoded({ extended: true }));
 // Update CORS options to use BASE_URL from the environment
 const corsOptions = {
   origin: [
+    "https://fitnessapi-javier.onrender.com",
+    "https://fitnessapp-api-ln8u.onrender.com",
     "http://localhost:8000",
     "http://localhost:4000",
     "http://localhost:3000",
